@@ -26,22 +26,14 @@ def parse_geo_column(geo_data: Union[str, Dict[str, Any]]) -> Tuple[Optional[flo
         return (None, None)
 
 
-def validate_required_columns(required_columns: Dict[str, Optional[str]]):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(self, *args, **kwargs):
-            missing_columns: List[str] = []
-            for logical_field, dataset_col in required_columns.items():
-                if dataset_col and dataset_col not in self.df.columns:
-                    missing_columns.append(dataset_col)
-            if missing_columns:
-                raise ValueError(f"Missing required columns: {missing_columns}")
-            return func(self, *args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
+def parse_time_column(time_data: Union[str, pd.Series], format: str = None) -> pd.Series:
+    try:
+        if format:
+            return pd.to_datetime(time_data, format=format, errors='coerce')
+        else:
+            return pd.to_datetime(time_data, errors='coerce')
+    except Exception as e:
+        raise ValueError(f"Error parsing time column: {e}")
 
 def is_json_column(df: pd.DataFrame, column: str) -> bool:
     return df[column].dtype == object
@@ -53,19 +45,15 @@ def load_dataframe(file_input: Union[str, pd.DataFrame, Any], datetime_columns: 
             raise FileNotFoundError(f"File not found: {file_input}")
         df = pd.read_csv(
             file_input,
-            parse_dates=datetime_columns,
-            infer_datetime_format=True
         )
     elif isinstance(file_input, pd.DataFrame):
         df = file_input.copy()
         df[datetime_columns] = df[datetime_columns].apply(pd.to_datetime, errors='coerce')
     else:
         try:
-            df = pd.read_csv(
-                file_input,
-                parse_dates=datetime_columns,
-                infer_datetime_format=True
-            )
+            print(f"File Input: {file_input}")
+            df = pd.read_csv(file_input)
+            print(f"Df Head: {df.head()}")
         except pd.errors.EmptyDataError:
             raise ValueError("CSV file is empty.")
         except pd.errors.ParserError:

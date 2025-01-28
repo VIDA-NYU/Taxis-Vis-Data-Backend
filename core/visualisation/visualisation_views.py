@@ -4,10 +4,9 @@ from rest_framework import status
 from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.views.decorators.csrf import csrf_exempt
-from typing import Any, Union, List, Tuple
 
+from core.config_manager import load_config
 from core.data_analysis.taxis_vis_analyser import TaxisVisAnalyser
-from core.utils.csv_reader import read_csv_file, validate_required_columns
 from core.utils.build_plots import (
     build_histogram,
     build_bar_chart,
@@ -16,35 +15,7 @@ from core.utils.build_plots import (
     build_scatter_plot,
     build_line_chart
 )
-
-
-def load_and_analyse(
-        csv_file: Any,
-        analysis_function: Any,
-        required_columns: List[str],
-        return_data: bool = False,
-        **kwargs
-) -> Union[Any, Tuple[Any, pd.DataFrame]]:
-    df = read_csv_file(csv_file)
-    validate_required_columns(df, required_columns)
-    analyser = TaxisVisAnalyser(file_input=df)
-    result = analysis_function(analyser, **kwargs)
-    if return_data:
-        return result, df
-    return result
-
-
-DEFAULT_REQUIRE_COLUMNS = [
-    'tpep_pickup_datetime',
-    'tpep_dropoff_datetime',
-    'pickup',
-    'dropoff',
-    'trip_distance',
-    'fare_amount',
-    'passenger_count',
-    'payment_type',
-    'tip_amount'
-]
+from core.visualisation.utils import load_and_analyse
 
 
 @api_view(['POST'])
@@ -53,14 +24,20 @@ DEFAULT_REQUIRE_COLUMNS = [
 def trip_duration_histogram_view(request):
     try:
         csv_file = request.FILES.get('file')
+        config = load_config()
+
         if not csv_file:
             return Response({'error': 'No CSV file provided.'}, status=status.HTTP_400_BAD_REQUEST)
 
         trip_durations = load_and_analyse(
             csv_file=csv_file,
             analysis_function=lambda analyser: analyser.get_trip_durations(),
-            required_columns=DEFAULT_REQUIRE_COLUMNS
+            config=config
         )
+
+        if trip_durations.empty:
+            return Response({'error': 'Trip duration data is not available in the dataset.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         chart = build_histogram(
             x=trip_durations.tolist(),
@@ -74,6 +51,10 @@ def trip_duration_histogram_view(request):
 
         return Response({'chart': chart}, status=status.HTTP_200_OK)
 
+    except FileNotFoundError as fnf_error:
+        return Response({'error': str(fnf_error)}, status=status.HTTP_404_NOT_FOUND)
+    except ValueError as val_error:
+        return Response({'error': str(val_error)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -85,19 +66,18 @@ def peak_hours_bar_view(request):
     try:
         csv_file = request.FILES.get('file')
         threshold = request.data.get('threshold', None)
+        config = load_config()
 
         if not csv_file:
             return Response({'error': 'No CSV file provided.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        peak_hours, df = load_and_analyse(
-            csv_file=csv_file,
-            analysis_function=lambda analyser, thres: analyser.identify_peak_hours(threshold=thres),
-            required_columns=DEFAULT_REQUIRE_COLUMNS,
-            thres=threshold,
-            return_data=True
+        temp_df = pd.read_csv(csv_file)
+        peak_hours = load_and_analyse(
+            csv_file=temp_df,
+            analysis_function=lambda analyser: analyser.identify_peak_hours(threshold=threshold),
+            config=config
         )
-
-        analyser = TaxisVisAnalyser(file_input=df)
+        analyser = TaxisVisAnalyser(file_input=temp_df, config=config)
         all_hours = analyser.df.groupby('pickup_hour').size().reset_index(name='trip_count')
         all_hours = all_hours.merge(peak_hours, on='pickup_hour', how='left', suffixes=('', '_peak'))
         all_hours['is_peak'] = all_hours['trip_count_peak'].notnull()
@@ -119,6 +99,10 @@ def peak_hours_bar_view(request):
 
         return Response({'chart': chart}, status=status.HTTP_200_OK)
 
+    except ValueError as val_error:
+        return Response({'error': str(val_error)}, status=status.HTTP_400_BAD_REQUEST)
+    except FileNotFoundError as fnf_error:
+        return Response({'error': str(fnf_error)}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -129,6 +113,7 @@ def peak_hours_bar_view(request):
 def fare_distribution_box_view(request):
     try:
         csv_file = request.FILES.get('file')
+        config = load_config()
 
         if not csv_file:
             return Response({'error': 'No CSV file provided.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -136,8 +121,12 @@ def fare_distribution_box_view(request):
         fare_amounts = load_and_analyse(
             csv_file=csv_file,
             analysis_function=lambda analyser: analyser.get_fare_amounts(),
-            required_columns=DEFAULT_REQUIRE_COLUMNS
+            config=config
         )
+
+        if fare_amounts.empty:
+            return Response({'error': 'Fare amount data is not available in the dataset.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         chart = build_box_plot(
             y=fare_amounts.tolist(),
@@ -149,6 +138,10 @@ def fare_distribution_box_view(request):
 
         return Response({'chart': chart}, status=status.HTTP_200_OK)
 
+    except ValueError as val_error:
+        return Response({'error': str(val_error)}, status=status.HTTP_400_BAD_REQUEST)
+    except FileNotFoundError as fnf_error:
+        return Response({'error': str(fnf_error)}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -159,6 +152,7 @@ def fare_distribution_box_view(request):
 def passenger_count_pie_view(request):
     try:
         csv_file = request.FILES.get('file')
+        config = load_config()
 
         if not csv_file:
             return Response({'error': 'No CSV file provided.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -166,8 +160,12 @@ def passenger_count_pie_view(request):
         passenger_count = load_and_analyse(
             csv_file=csv_file,
             analysis_function=lambda analyser: analyser.analyse_passenger_count(),
-            required_columns=DEFAULT_REQUIRE_COLUMNS
+            config=config
         )
+
+        if passenger_count.empty:
+            return Response({'error': 'Passenger count data is not available in the dataset.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         labels = passenger_count['passenger_count'].astype(str).tolist()
         values = passenger_count['count'].tolist()
@@ -189,6 +187,10 @@ def passenger_count_pie_view(request):
 
         return Response({'chart': chart}, status=status.HTTP_200_OK)
 
+    except ValueError as val_error:
+        return Response({'error': str(val_error)}, status=status.HTTP_400_BAD_REQUEST)
+    except FileNotFoundError as fnf_error:
+        return Response({'error': str(fnf_error)}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -199,6 +201,7 @@ def passenger_count_pie_view(request):
 def payment_type_pie_view(request):
     try:
         csv_file = request.FILES.get('file')
+        config = load_config()
 
         if not csv_file:
             return Response({'error': 'No CSV file provided.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -206,8 +209,12 @@ def payment_type_pie_view(request):
         payment_type = load_and_analyse(
             csv_file=csv_file,
             analysis_function=lambda analyser: analyser.analyse_payment_type(),
-            required_columns=DEFAULT_REQUIRE_COLUMNS
+            config=config
         )
+
+        if payment_type.empty:
+            return Response({'error': 'Payment type data is not available in the dataset.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         labels = payment_type['payment_type'].astype(str).tolist()
         values = payment_type['count'].tolist()
@@ -229,8 +236,12 @@ def payment_type_pie_view(request):
 
         return Response({'chart': chart}, status=status.HTTP_200_OK)
 
+    except ValueError as val_error:
+        return Response({'error': str(val_error)}, status=status.HTTP_400_BAD_REQUEST)
+    except FileNotFoundError as fnf_error:
+        return Response({'error': str(fnf_error)}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
-        return Response({'error': f'An unexpected error occurred: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])
@@ -239,6 +250,7 @@ def payment_type_pie_view(request):
 def tip_amount_analysis_view(request):
     try:
         csv_file = request.FILES.get('file')
+        config = load_config()
 
         if not csv_file:
             return Response({'error': 'No CSV file provided.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -246,8 +258,12 @@ def tip_amount_analysis_view(request):
         tip_distribution = load_and_analyse(
             csv_file=csv_file,
             analysis_function=lambda analyser: analyser.get_tip_amounts(),
-            required_columns=DEFAULT_REQUIRE_COLUMNS
+            config=config
         )
+
+        if tip_distribution.empty:
+            return Response({'error': 'Tip amount data is not available in the dataset.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         chart = build_box_plot(
             y=tip_distribution.tolist(),
@@ -259,6 +275,10 @@ def tip_amount_analysis_view(request):
 
         return Response({'chart': chart}, status=status.HTTP_200_OK)
 
+    except ValueError as val_error:
+        return Response({'error': str(val_error)}, status=status.HTTP_400_BAD_REQUEST)
+    except FileNotFoundError as fnf_error:
+        return Response({'error': str(fnf_error)}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -269,6 +289,7 @@ def tip_amount_analysis_view(request):
 def distance_fare_scatter_plot_view(request):
     try:
         csv_file = request.FILES.get('file')
+        config = load_config()
 
         if not csv_file:
             return Response({'error': 'No CSV file provided.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -276,8 +297,12 @@ def distance_fare_scatter_plot_view(request):
         distance_fare = load_and_analyse(
             csv_file=csv_file,
             analysis_function=lambda analyser: analyser.analyse_distance_fare_scatter(),
-            required_columns=DEFAULT_REQUIRE_COLUMNS
+            config=config
         )
+
+        if distance_fare.empty:
+            return Response({'error': 'Distance vs. Fare data is not available in the dataset.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         chart = build_scatter_plot(
             x=distance_fare['trip_distance'].tolist(),
@@ -294,6 +319,10 @@ def distance_fare_scatter_plot_view(request):
 
         return Response({'chart': chart}, status=status.HTTP_200_OK)
 
+    except ValueError as val_error:
+        return Response({'error': str(val_error)}, status=status.HTTP_400_BAD_REQUEST)
+    except FileNotFoundError as fnf_error:
+        return Response({'error': str(fnf_error)}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -304,6 +333,7 @@ def distance_fare_scatter_plot_view(request):
 def time_series_line_view(request):
     try:
         csv_file = request.FILES.get('file')
+        config = load_config()
 
         if not csv_file:
             return Response({'error': 'No CSV file provided.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -311,8 +341,12 @@ def time_series_line_view(request):
         time_series = load_and_analyse(
             csv_file=csv_file,
             analysis_function=lambda analyser: analyser.analyse_time_series_trips(),
-            required_columns=DEFAULT_REQUIRE_COLUMNS
+            config=config
         )
+
+        if time_series.empty:
+            return Response({'error': 'Time series data is not available in the dataset.'},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         chart = build_line_chart(
             x=time_series['pickup_date'].astype(str).tolist(),
@@ -328,5 +362,9 @@ def time_series_line_view(request):
 
         return Response({'chart': chart}, status=status.HTTP_200_OK)
 
+    except ValueError as val_error:
+        return Response({'error': str(val_error)}, status=status.HTTP_400_BAD_REQUEST)
+    except FileNotFoundError as fnf_error:
+        return Response({'error': str(fnf_error)}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
