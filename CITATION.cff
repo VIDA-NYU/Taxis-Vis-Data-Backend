@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Taxis Vis: Data Analysis Backend"
+authors:
+  - name: Simon Provost
+    orcid: https://orcid.org/0000-0001-8402-5464
+  - name: Prof. Juliana Freire
+    orcid: https://orcid.org/0000-0003-3915-7075
+  - name: Prof. Claudio Silva
+    orcid: https://orcid.org/0000-0003-2452-2295
+  - name: João Rulff
+    orcid: https://orcid.org/0000-0003-3341-7059
+date-released: 2025-01-27
+version: 0.1.0-alpha
+url: https://github.com/VIDA-NYU/Taxis-Vis-Data-Backend
+abstract: >
+  The Taxis Vis Data Analysis Backend handles filtered taxi trip data, delivering visual-ready
+  analytics and enabling future machine learning integration.
