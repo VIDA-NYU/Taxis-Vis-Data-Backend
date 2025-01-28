@@ -1,0 +1,17 @@
+{
+  "datetime_columns": {
+    "pickup": "pickup_datetime",
+    "dropoff": "dropoff_datetime"
+  },
+  "location_columns": {
+    "pickup": "pickup_coordinates",
+    "dropoff": "dropoff_coordinates"
+  },
+  "required_columns": {
+    "trip_distance": "trip_distance",
+    "fare_amount": "fare_amount",
+    "passenger_count": "passenger_count",
+    "payment_type": "payment_type",
+    "tip_amount": "tip_amount"
+  }
+}
