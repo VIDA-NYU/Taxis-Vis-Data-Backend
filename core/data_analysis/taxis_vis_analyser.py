@@ -1,160 +1,137 @@
 import pandas as pd
 from shapely.geometry import Point
 from typing import Optional, Union, Dict, Any, List
-import os
-import json
+from .utils import (
+    parse_geo_column,
+    is_json_column,
+    load_dataframe, parse_time_column
+)
 
 
 class TaxisVisAnalyser:
     def __init__(
             self,
             file_input: Union[str, pd.DataFrame],
-            spatial_data: Optional[Any] = None,
-            datetime_columns: Optional[Dict[str, str]] = None,
-            location_columns: Optional[Dict[str, str]] = None
+            config: Dict[str, Any]
     ) -> None:
-        self.file_input: Union[str, pd.DataFrame] = file_input
-        self.spatial_data: Optional[Any] = spatial_data
+        self.file_input: Union[str, pd.DataFrame, Any] = file_input
         self.df: Optional[pd.DataFrame] = None
-        self.datetime_columns: Dict[str, str] = datetime_columns or {
-            'pickup': 'tpep_pickup_datetime',
-            'dropoff': 'tpep_dropoff_datetime'
-        }
-        self.location_columns: Dict[str, str] = location_columns or {
-            'pickup': 'pickup',
-            'dropoff': 'dropoff'
-        }
-        self.required_columns: List[str] = [
-            self.datetime_columns['pickup'],
-            self.datetime_columns['dropoff'],
-            self.location_columns['pickup'],
-            self.location_columns['dropoff'],
-            'payment_type',
-            'passenger_count',
-            'fare_amount',
-            'trip_distance',
-            'tip_amount'
-        ]
+        self.config: Dict[str, Any] = config
+        self.datetime_columns: List[str] = list(config.get('datetime_columns', {}).values())
+        self.location_columns: Dict[str, str] = config.get('location_columns', {})
+        self.required_columns: Dict[str, Optional[str]] = config.get('required_columns', {})
         self.load_data()
         self.validate_columns()
         self.extract_location_coordinates()
         self.preprocess_data()
 
     def load_data(self) -> None:
-        if isinstance(self.file_input, str):
-            if not os.path.isfile(self.file_input):
-                raise FileNotFoundError(f"File not found: {self.file_input}")
-            self.df = pd.read_csv(
-                self.file_input,
-                parse_dates=[self.datetime_columns['pickup'], self.datetime_columns['dropoff']],
-                infer_datetime_format=True
-            )
-        elif isinstance(self.file_input, pd.DataFrame):
-            self.df = self.file_input.copy()
-            self.parse_datetime_columns()
-        else:
-            raise ValueError("file_input must be a file path (str) or a pandas DataFrame")
-
-    def parse_datetime_columns(self) -> None:
-        for key, col in self.datetime_columns.items():
-            if col in self.df.columns:
-                self.df[col] = pd.to_datetime(self.df[col], errors='coerce')
-            else:
-                raise ValueError(f"Missing datetime column: {col}")
+        self.df = load_dataframe(self.file_input, self.datetime_columns)
 
     def validate_columns(self) -> None:
-        if self.df is None:
-            raise ValueError("DataFrame is not loaded.")
-        missing_columns: List[str] = [col for col in self.required_columns if col not in self.df.columns]
+        missing_columns: List[str] = []
+        for logical_field, dataset_col in self.required_columns.items():
+            if dataset_col and dataset_col not in self.df.columns:
+                missing_columns.append(dataset_col)
         if missing_columns:
             raise ValueError(f"Missing required columns: {missing_columns}")
 
     def extract_location_coordinates(self) -> None:
         for point_type in ['pickup', 'dropoff']:
-            geo_col: str = self.location_columns[point_type]
+            geo_col: Optional[str] = self.location_columns.get(point_type)
+            if not geo_col:
+                continue
             lat_col: str = f"{point_type}_latitude"
             lon_col: str = f"{point_type}_longitude"
 
-            if self.df[geo_col].dtype == object:
-                self.df[lat_col], self.df[lon_col] = zip(*self.df[geo_col].apply(self.parse_geo_column))
+            if is_json_column(self.df, geo_col):
+                self.df[[lat_col, lon_col]] = self.df[geo_col].apply(
+                    lambda x: pd.Series(parse_geo_column(x))
+                )
             else:
-                raise ValueError(f"The {geo_col} column must contain JSON strings or dictionaries.")
-
-    @staticmethod
-    def parse_geo_column(geo_data: Union[str, Dict[str, Any]]) -> (Optional[float], Optional[float]):
-        try:
-            if isinstance(geo_data, str):
-                geo_json = json.loads(geo_data)
-            elif isinstance(geo_data, dict):
-                geo_json = geo_data
-            else:
-                return (None, None)
-
-            latitude = geo_json.get('latitude') or geo_json.get('lat')
-            longitude = geo_json.get('longitude') or geo_json.get('lon') or geo_json.get('lng')
-
-            return (float(latitude) if latitude is not None else None,
-                    float(longitude) if longitude is not None else None)
-        except (json.JSONDecodeError, TypeError, ValueError):
-            return (None, None)
+                raise ValueError(f"The '{geo_col}' column must contain JSON strings or dictionaries.")
 
     def preprocess_data(self) -> None:
         if self.df is not None:
-            self.df['trip_duration'] = (
-                                               self.df[self.datetime_columns['dropoff']] - self.df[
-                                           self.datetime_columns['pickup']]
-                                       ).dt.total_seconds() / 60
-            self.df['pickup_hour'] = self.df[self.datetime_columns['pickup']].dt.hour
-            self.df['pickup_date'] = self.df[self.datetime_columns['pickup']].dt.date
-            self.create_point('pickup')
-            self.create_point('dropoff')
+            pickup_col = self.config.get('datetime_columns', {}).get('pickup')
+            dropoff_col = self.config.get('datetime_columns', {}).get('dropoff')
 
-    def create_point(self, point_type: str) -> None:
-        lat_col: str = f"{point_type}_latitude"
-        lon_col: str = f"{point_type}_longitude"
-        point_col: str = f"{point_type}_point"
+            if pickup_col and dropoff_col:
+                # Use parse_time_column to ensure proper parsing
+                self.df[pickup_col] = parse_time_column(self.df[pickup_col])
+                self.df[dropoff_col] = parse_time_column(self.df[dropoff_col])
 
-        if lat_col in self.df.columns and lon_col in self.df.columns:
-            self.df[point_col] = self.df.apply(
-                lambda row: Point(row[lon_col], row[lat_col]) if pd.notnull(row[lat_col]) and pd.notnull(
-                    row[lon_col]) else None,
-                axis=1
-            )
-        else:
-            raise ValueError(f"Missing location columns for {point_type}: {lat_col}, {lon_col}")
+                if pickup_col in self.df.columns and dropoff_col in self.df.columns:
+                    self.df['trip_duration'] = (
+                                                       self.df[dropoff_col] - self.df[pickup_col]
+                                               ).dt.total_seconds() / 60  # Duration in minutes
+                    self.df['pickup_hour'] = self.df[pickup_col].dt.hour
+                    self.df['pickup_date'] = self.df[pickup_col].dt.date
+                else:
+                    self.df['trip_duration'] = None
+                    self.df['pickup_hour'] = None
+                    self.df['pickup_date'] = None
+
+            for point_type in ['pickup', 'dropoff']:
+                lat_col = f"{point_type}_latitude"
+                lon_col = f"{point_type}_longitude"
+                point_col = f"{point_type}_point"
+                if lat_col in self.df.columns and lon_col in self.df.columns:
+                    self.df[point_col] = self.df.apply(
+                        lambda row: Point(row[lon_col], row[lat_col])
+                        if pd.notnull(row[lat_col]) and pd.notnull(row[lon_col])
+                        else None,
+                        axis=1
+                    )
+                else:
+                    self.df[point_col] = None
 
     def identify_peak_hours(self, threshold: Optional[int] = None) -> pd.DataFrame:
+        if 'pickup_hour' not in self.df.columns or self.df['pickup_hour'].isnull().all():
+            raise ValueError("Cannot identify peak hours as 'pickup_hour' data is missing.")
         peak_hours: pd.DataFrame = self.df.groupby('pickup_hour').size().reset_index(name='trip_count')
         if threshold is not None:
             peak_hours = peak_hours[peak_hours['trip_count'] >= threshold]
         return peak_hours
 
     def analyse_passenger_count(self) -> pd.DataFrame:
-        passenger_count: pd.DataFrame = self.df['passenger_count'].value_counts().reset_index()
+        passenger_count_col = self.required_columns.get('passenger_count')
+        passenger_count: pd.DataFrame = self.df[passenger_count_col].value_counts().reset_index()
         passenger_count.columns = ['passenger_count', 'count']
         return passenger_count
 
     def analyse_payment_type(self) -> pd.DataFrame:
-        payment_type: pd.DataFrame = self.df['payment_type'].value_counts().reset_index()
+        payment_type_col = self.required_columns.get('payment_type')
+        payment_type: pd.DataFrame = self.df[payment_type_col].value_counts().reset_index()
         payment_type.columns = ['payment_type', 'count']
         return payment_type
 
     def analyse_distance_fare_scatter(self) -> pd.DataFrame:
-        distance_fare: pd.DataFrame = self.df[['trip_distance', 'fare_amount']].dropna()
+        trip_distance_col = self.required_columns.get('trip_distance')
+        fare_amount_col = self.required_columns.get('fare_amount')
+        distance_fare: pd.DataFrame = self.df[[trip_distance_col, fare_amount_col]].dropna()
+        distance_fare.columns = ['trip_distance', 'fare_amount']
         return distance_fare
 
     def analyse_time_series_trips(self) -> pd.DataFrame:
-        time_series_trips: pd.DataFrame = self.df.groupby('pickup_date').size().reset_index(name='trip_count')
+        pickup_date_col = 'pickup_date'
+        if pickup_date_col not in self.df.columns or self.df[pickup_date_col].isnull().all():
+            raise ValueError("Cannot analyze time series trips as 'pickup_date' column is missing.")
+        time_series_trips: pd.DataFrame = self.df.groupby(pickup_date_col).size().reset_index(name='trip_count')
         return time_series_trips
 
     def get_trip_durations(self) -> pd.Series:
+        if 'trip_duration' not in self.df.columns or self.df['trip_duration'].isnull().all():
+            raise ValueError("Cannot get trip durations as 'trip_duration' data is missing.")
         trip_durations: pd.Series = self.df['trip_duration'].dropna()
         return trip_durations
 
     def get_fare_amounts(self) -> pd.Series:
-        fare_amounts: pd.Series = self.df['fare_amount'].dropna()
+        fare_amount_col = self.required_columns.get('fare_amount')
+        fare_amounts: pd.Series = self.df[fare_amount_col].dropna()
         return fare_amounts
 
     def get_tip_amounts(self) -> pd.Series:
-        tip_amounts: pd.Series = self.df['tip_amount'].dropna()
+        tip_col = self.required_columns.get('tip_amount')
+        tip_amounts: pd.Series = self.df[tip_col].dropna()
         return tip_amounts
