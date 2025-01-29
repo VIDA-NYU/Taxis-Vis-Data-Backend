@@ -7,15 +7,14 @@ def read_csv_file(
         csv_file: Union[str, Any],
         datetime_columns: Optional[List[str]] = None
 ) -> pd.DataFrame:
-    datetime_cols = datetime_columns or ['tpep_pickup_datetime', 'tpep_dropoff_datetime']
+    datetime_cols = datetime_columns or []
     try:
         if isinstance(csv_file, str):
             if not os.path.isfile(csv_file):
                 raise FileNotFoundError(f"File not found: {csv_file}")
             df = pd.read_csv(csv_file, parse_dates=datetime_cols)
         else:
-            df = pd.read_csv(csv_file,
-                             parse_dates=datetime_cols)  # Here, we assume that the input is a file-like object
+            df = pd.read_csv(csv_file, parse_dates=datetime_cols)  # Assuming file-like object
 
         if df.empty:
             raise ValueError("CSV file is empty.")
