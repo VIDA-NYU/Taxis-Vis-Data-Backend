@@ -5,7 +5,6 @@ from rest_framework.decorators import api_view, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.views.decorators.csrf import csrf_exempt
 
-from core.config_manager import load_config
 from core.data_analysis.taxis_vis_analyser import TaxisVisAnalyser
 from core.utils.build_plots import (
     build_histogram,
@@ -24,7 +23,6 @@ from core.visualisation.utils import load_and_analyse
 def trip_duration_histogram_view(request):
     try:
         csv_file = request.FILES.get('file')
-        config = load_config()
 
         if not csv_file:
             return Response({'error': 'No CSV file provided.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -32,7 +30,6 @@ def trip_duration_histogram_view(request):
         trip_durations = load_and_analyse(
             csv_file=csv_file,
             analysis_function=lambda analyser: analyser.get_trip_durations(),
-            config=config
         )
 
         if trip_durations.empty:
@@ -66,7 +63,6 @@ def peak_hours_bar_view(request):
     try:
         csv_file = request.FILES.get('file')
         threshold = request.data.get('threshold', None)
-        config = load_config()
 
         if not csv_file:
             return Response({'error': 'No CSV file provided.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -75,9 +71,9 @@ def peak_hours_bar_view(request):
         peak_hours = load_and_analyse(
             csv_file=temp_df,
             analysis_function=lambda analyser: analyser.identify_peak_hours(threshold=threshold),
-            config=config
+
         )
-        analyser = TaxisVisAnalyser(file_input=temp_df, config=config)
+        analyser = TaxisVisAnalyser(file_input=temp_df, )
         all_hours = analyser.df.groupby('pickup_hour').size().reset_index(name='trip_count')
         all_hours = all_hours.merge(peak_hours, on='pickup_hour', how='left', suffixes=('', '_peak'))
         all_hours['is_peak'] = all_hours['trip_count_peak'].notnull()
@@ -113,7 +109,6 @@ def peak_hours_bar_view(request):
 def fare_distribution_box_view(request):
     try:
         csv_file = request.FILES.get('file')
-        config = load_config()
 
         if not csv_file:
             return Response({'error': 'No CSV file provided.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -121,7 +116,7 @@ def fare_distribution_box_view(request):
         fare_amounts = load_and_analyse(
             csv_file=csv_file,
             analysis_function=lambda analyser: analyser.get_fare_amounts(),
-            config=config
+
         )
 
         if fare_amounts.empty:
@@ -152,7 +147,6 @@ def fare_distribution_box_view(request):
 def passenger_count_pie_view(request):
     try:
         csv_file = request.FILES.get('file')
-        config = load_config()
 
         if not csv_file:
             return Response({'error': 'No CSV file provided.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -160,7 +154,7 @@ def passenger_count_pie_view(request):
         passenger_count = load_and_analyse(
             csv_file=csv_file,
             analysis_function=lambda analyser: analyser.analyse_passenger_count(),
-            config=config
+
         )
 
         if passenger_count.empty:
@@ -201,7 +195,6 @@ def passenger_count_pie_view(request):
 def payment_type_pie_view(request):
     try:
         csv_file = request.FILES.get('file')
-        config = load_config()
 
         if not csv_file:
             return Response({'error': 'No CSV file provided.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -209,7 +202,7 @@ def payment_type_pie_view(request):
         payment_type = load_and_analyse(
             csv_file=csv_file,
             analysis_function=lambda analyser: analyser.analyse_payment_type(),
-            config=config
+
         )
 
         if payment_type.empty:
@@ -250,7 +243,6 @@ def payment_type_pie_view(request):
 def tip_amount_analysis_view(request):
     try:
         csv_file = request.FILES.get('file')
-        config = load_config()
 
         if not csv_file:
             return Response({'error': 'No CSV file provided.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -258,7 +250,7 @@ def tip_amount_analysis_view(request):
         tip_distribution = load_and_analyse(
             csv_file=csv_file,
             analysis_function=lambda analyser: analyser.get_tip_amounts(),
-            config=config
+
         )
 
         if tip_distribution.empty:
@@ -289,7 +281,6 @@ def tip_amount_analysis_view(request):
 def distance_fare_scatter_plot_view(request):
     try:
         csv_file = request.FILES.get('file')
-        config = load_config()
 
         if not csv_file:
             return Response({'error': 'No CSV file provided.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -297,7 +288,7 @@ def distance_fare_scatter_plot_view(request):
         distance_fare = load_and_analyse(
             csv_file=csv_file,
             analysis_function=lambda analyser: analyser.analyse_distance_fare_scatter(),
-            config=config
+
         )
 
         if distance_fare.empty:
@@ -333,7 +324,6 @@ def distance_fare_scatter_plot_view(request):
 def time_series_line_view(request):
     try:
         csv_file = request.FILES.get('file')
-        config = load_config()
 
         if not csv_file:
             return Response({'error': 'No CSV file provided.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -341,7 +331,7 @@ def time_series_line_view(request):
         time_series = load_and_analyse(
             csv_file=csv_file,
             analysis_function=lambda analyser: analyser.analyse_time_series_trips(),
-            config=config
+
         )
 
         if time_series.empty:
