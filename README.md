@@ -1,36 +1,47 @@
 <div align="center">
   <img src="./public/repo_icon.png" alt="Taxis Vis Icon" width="150"/>
   <h1><strong>Taxis Vis</strong></h1>
-  <h4>Data Analysis Backend 📊</h4>
+  <h4>Data Analysis Backend (Django + Pandas) 📊</h4>
 
 ![Django](https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white)
 ![Pandas](https://img.shields.io/badge/Pandas-150458?style=for-the-badge&logo=pandas&logoColor=white)
-![UV](https://img.shields.io/badge/UV-00B1D2?style=for-the-badge&logo=uv&logoColor=white)
-![Version](https://img.shields.io/badge/Version-0.1.0_alpha-red?style=for-the-badge)
-</div>
-
-______
-
-<div align="center">
-
-_Greetings_ from the **Taxis Vis Data Analysis Backend**! This project is a component of the larger Taxis Vis
-initiative, which
-draws inspiration from the paper [*Visual Exploration of Big Spatio-Temporal Urban Data: A Study of New York City Taxi
-Trips*](https://ieeexplore.ieee.org/abstract/document/6634127/).
-We aim to _revive_ the paper using _modern_ open-source tools.
-
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Version](https://img.shields.io/badge/Version-0.2.0_alpha-red?style=for-the-badge)
 </div>
 
 ---
 
 ## 🚀 **Overview**
 
-The **Data Analysis Backend** is built with **Django** and managed by **UV** (Astral's _very-fast_ environment
-tool).  
-It can generate histograms, scatter plots, box plots, pie charts, and other visualisations from filtered taxi trip
-data.  
-This backend ensures a **future-proof design**, allowing for the integration of machine learning models to improve
-insights and handle diverse datasets through configurable mappings.
+The **Data Analysis Backend** is a **Django** + **Pandas** service that receives **CSV** data from
+the [Taxis Vis Frontend](https://github.com/VIDA-NYU/Taxis-Vis-Frontend). Once the frontend (or the Node geospatial
+backend) has filtered taxi trips, that subset is uploaded here for further analytics—**histograms, box plots, scatter
+plots, pie charts**, and more. We transform your CSV into **Plotly-friendly JSON** for easy rendering on the frontend.
+
+> ![NOTE]
+> The heavy-lifting for geospatial queries (e.g., polygon/line-based filters) is done in the **GeoSpatial Node.js +
+DuckDB** backend. This Django service strictly focuses on data analysis once the relevant CSV subset is sent over.
+
+> ![NOTE]
+> The following features are in **alpha** stage. Therefore, these are not covering **all* the features mentioned in the
+> paper. However, the infrastructure allows for replicating them all mentioned in the paper.
+---
+
+## 🎛️ **Configuration & Required Columns**
+
+Unlike the geospatial backend, you usually don’t need to configure custom JSON files here. Instead:
+
+1. **`data_analysis_backend_required_columns`**  
+   The Node backend defines certain columns that your CSV must include so that these analysis endpoints can function.
+   These columns (e.g., `"trip_distance"`, `"fare_amount"`, etc.) must appear in the CSV you send to Django.
+
+2. **CSV Format**  
+   When the frontend or Node backend posts data to these endpoints, they include a file (CSV) in the form-data. We
+   expect the columns named the same way the Node backend promised (based on `filtered_trips_output_columns` in
+   `dataset.json`).
+
+**If these required columns are missing**, the respective endpoint will reject the request or report an error indicating
+which columns are not found.
 
 ---
 
@@ -38,277 +49,120 @@ insights and handle diverse datasets through configurable mappings.
 
 ### **Pre-requisites**
 
-1. **Install UV:**
-   ```bash
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   ```
+- **Python** (>=3.8) and **pip**.
+- *(Highly recommended)* **UV** for environment management without having to deal with the fuss of creating an env
+  yourself!
 
-   *Note: Explore more about UV [here](https://docs.astral.sh/uv/getting-started/installation/#installing-uv).*
+### **Steps to Set Up**
 
-2. **Install Python and pip:**
-
-   Ensure Python (>=3.8) and pip are installed on your system. You can download Python from
-   the [official website](https://www.python.org/downloads/) or use a package manager like `apt`, `brew`, or `choco`
-   based on your OS.
-
----
-
-### ⚙️ **Setup**
-
-1. **Clone the Repository:**
+1. **Clone** this repository:
    ```bash
    git clone https://github.com/VIDA-NYU/Taxis-Vis-Data-Backend.git
    cd Taxis-Vis-Data-Backend
    ```
-
-2. **Prepare the Environment:**
-
-   Lock and synchronize dependencies using **UV**:
+2. **Install** dependencies using **pip** or **UV**:
    ```bash
    uv lock
    uv sync
    ```
 
-   *Note: UV manages the environment dynamically, eliminating the need for explicit virtual environment activation.*
-
-3. **Start the Backend Server:**
+3. **Run** the Django server:
    ```bash
-   uv run python manage.py runserver
-   ```
+   # With UV:
+   uv run python manage.py runserver # without the need to activate the environment yourself. UV does it for you!
 
-   The server should now be running locally, typically accessible at `http://127.0.0.1:8000/`.
+   # Or directly:
+   python manage.py runserver # assuming you have the environment activated
+   ```
+   By default, it listens on **http://127.0.0.1:8000**.
 
 ---
 
-## 🌍 **Technology Stack**
+## 🌐 **Endpoints in a Nutshell**
 
-| **Feature**                | **Details**                                                                                                                                                                                                                                     |
-|----------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Framework**              | Django REST API for backend functionality.                                                                                                                                                                                                      |
-| **Data Analysis**          | Pandas for flexible and efficient data handling [![GitHub Repo stars](https://img.shields.io/github/stars/pandas-dev/pandas?style=social)](https://github.com/pandas-dev/pandas)                                                                |
-| **Numerical Processing**   | NumPy for foundational numerical computations [![GitHub Repo stars](https://img.shields.io/github/stars/numpy/numpy?style=social)](https://github.com/numpy/numpy)                                                                              |
-| **Geospatial Processing**  | Shapely for geometric operations [![GitHub Repo stars](https://img.shields.io/github/stars/shapely/shapely?style=social)](https://github.com/shapely/shapely)                                                                                   |
-| **Visualisation**          | Custom Plotly-based functions for generating interactive charts [![Plotly](https://img.shields.io/badge/Plotly-3776AB?style=for-the-badge&logo=plotly&logoColor=white)](https://plotly.com/)                                                    |
-| **API Handling**           | Django REST Framework for building robust APIs [![Django REST Framework](https://img.shields.io/badge/Django%20REST%20Framework-000000?style=for-the-badge&logo=django-rest-framework&logoColor=white)](https://www.django-rest-framework.org/) |
-| **Environment Management** | UV by Astral for environment management [![UV](https://img.shields.io/badge/UV-00B1D2?style=for-the-badge&logo=uv&logoColor=white)](https://docs.astral.sh/uv/)                                                                                 |
+Each endpoint expects a **multipart/form-data** POST containing:
+
+- **`file`**: The CSV of filtered trips.
+- *(Optionally)* any other parameters your analyses might need (e.g., thresholds).
+
+Common endpoints:
+
+1. **`/api/visualisation/trip-duration-histogram/`**  
+   Generates a histogram of trip durations (in minutes).
+
+2. **`/api/visualisation/fare-distribution-box/`**  
+   Box plot distribution of fare amounts.
+
+3. **`/api/visualisation/distance-fare-scatter-plot/`**  
+   Scatter plot analyzing the relationship between trip distance and fare amount.
+
+4. **`/api/visualisation/time-series-line/`**  
+   Line chart tracking how many trips happened across different days (or time units).
+
+... and several others, all focused on exploring numeric columns from the CSV.
 
 ---
 
-## 🎛️ **Configuration for Multiple Datasets**
+## 💡 **Data Flow**: How the CSV Arrives Here
 
-One of the key strengths of the **Taxis Vis Data Analysis Backend** is its ability to handle multiple datasets through
-configurable JSON files. By modifying or adding new configuration files, you can seamlessly integrate different taxi
-trip datasets without altering the core backend logic.
+1. A user on the **Taxis Vis Frontend** draws polygons or sets time filters → This triggers a request to the **Node
+   Geospatial Backend**.
+2. The Node backend returns a list of trips that match those geospatial/time conditions.
+3. The user then chooses an analysis type (e.g., “Trip Duration Histogram”) on the frontend.
+4. The frontend creates a CSV out of the filtered trips and posts it to **this Django** backend (e.g.,
+   `/visualisation/trip-duration-histogram/`).
+5. **Django** reads that CSV into a Pandas DataFrame, performs the analysis, and returns **Plotly** chart data (in JSON)
+   to the frontend.
 
-### **a. Configuration Files Structure**
+---
 
-Each dataset you wish to analyse should have its own JSON configuration file stored in the `config/` directory. These
-configuration files define how the backend maps and processes the dataset's columns.
+## **When Adding a New Dataset**
 
-**Example Configuration (`nyc_taxis_2015_dataset.json`):**
+There’s typically **no** need to modify this Django project if:
 
-```json
-{
-   // Basically, key is generally the logical name and value is the column name in the dataset
-   "datetime_columns": {
-      "pickup": "tpep_pickup_datetime",
-      "dropoff": "tpep_dropoff_datetime"
-   },
-   "location_columns": {
-      "pickup": "pickup_coordinates",
-      "dropoff": "dropoff_coordinates"
-   },
-   "required_columns": {
-      "trip_distance": "trip_distance",
-      "fare_amount": "fare",
-      "passenger_count": "passenger_count",
-      "payment_type": "payment_type",
-      "tip_amount": "tip_amount"
-   }
-}
-```
+- You keep the required columns from `dataset.json` in your Node backend.
+- The CSV posted to this Django backend includes those columns.
 
-**Key Sections:**
+As long as the new dataset respects the Node backend’s `data_analysis_backend_required_columns` and the final CSV for
+analysis has those columns, Django can produce the charts with no extra configuration.
 
-- **`datetime_columns`:** Maps logical datetime fields to the dataset's column names.
-- **`location_columns`:** Maps logical location fields (pickup/dropoff) to the dataset's JSON columns containing
-  coordinates.
-- **`required_columns`:** Specifies essential columns for analysis, mapping logical names to dataset column names.
+---
 
-### **b. Adding a New Dataset Configuration**
+## Design Philosophy 💡
 
-To integrate a new dataset, follow these steps:
+We focus on **simplicity and performance**:
 
-1. **Create a New Configuration File:**
+- **Django** for the REST API endpoints and easy request handling.
+- **Pandas** for the tabular transformations—straightforward to manipulate CSV data in-memory. Future version could even
+  think passing this into an ML-e.g.-Scikit Pipeline for ML-based analysis of taxis-trips data.
+- Minimal, well-defined endpoints that produce Plotly-friendly JSON, so the frontend can easily embed dynamic charts.
 
-   - Navigate to the `config/` directory.
-   - Create a new JSON file, e.g., `city_taxis_2020_dataset.json`.
-
-2. **Define the Configuration:**
-
-   Populate the JSON file with the appropriate mappings based on the new dataset's structure.
-
-   **Example (`city_taxis_2020_dataset.json`):**
-
-   ```json
-   {
-     "datetime_columns": {
-       "pickup": "pickup_datetime",
-       "dropoff": "dropoff_datetime"
-     },
-     "location_columns": {
-       "pickup": "pickup_location",
-       "dropoff": "dropoff_location"
-     },
-     "required_columns": {
-       "trip_distance": "distance_miles",
-       "fare_amount": "fare",
-       "passenger_count": "passengers",
-       "payment_type": "payment_method",
-       "tip_amount": "tip"
-     }
-   }
-   ```
-
-3. **Save and Validate:**
-
-   Ensure the JSON is valid. Use tools like [JSONLint](https://jsonlint.com/) for validation.
-
-### **c. Using a Specific Configuration in API Requests**
-
-When making API requests to perform analyses, specify the desired configuration by including the `config_name`parameter.
-If not specified, the backend defaults to `nyc_taxis_2015_dataset`.
-
-**Example API Request Payload:**
-
-```bash
-POST /visualisation/trip-duration-histogram/
-Content-Type: multipart/form-data
-
-file: <your_csv_file>
-config_name: city_taxis_2020_dataset
-```
-
-**Parameters:**
-
-- **`file` (required):** The CSV file containing taxi trip data.
-- **`config_name` (optional):** The name of the configuration file (without `.json` extension). Defaults to
-  `nyc_taxis_2015_dataset` if not provided.
-
-–––––
-
-## 📖 **Usage**
-
-The backend exposes several API endpoints to perform various analyses on the taxi trip data. Each endpoint expects a CSV
-file and optionally a `config_name` to specify the dataset configuration.
-
-### **Available API Endpoints**
-
-1. **Trip Duration Histogram**
-   - **URL:** `/visualisation/trip-duration-histogram/`
-   - **Method:** `POST`
-   - **Description:** Generates a histogram showing the distribution of trip durations in minutes.
-
-2. **Peak Hours Bar Chart**
-   - **URL:** `/visualisation/peak-hours-bar/`
-   - **Method:** `POST`
-   - **Description:** Generates a bar chart displaying the number of trips per pickup hour, highlighting peak hours
-     based on a threshold.
-
-3. **Fare Distribution Box Plot**
-   - **URL:** `/visualisation/fare-distribution-box/`
-   - **Method:** `POST`
-   - **Description:** Generates a box plot illustrating the distribution of fare amounts.
-
-4. **Passenger Count Pie Chart**
-   - **URL:** `/visualisation/passenger-count-pie/`
-   - **Method:** `POST`
-   - **Description:** Generates a pie chart showing the distribution of passenger counts.
-
-5. **Payment Type Pie Chart**
-   - **URL:** `/visualisation/payment-type-pie/`
-   - **Method:** `POST`
-   - **Description:** Generates a pie chart depicting the distribution of payment types.
-
-6. **Tip Amount Box Plot**
-   - **URL:** `/visualisation/tip-amount-box/`
-   - **Method:** `POST`
-   - **Description:** Generates a box plot for tip amounts.
-
-7. **Distance vs. Fare Scatter Plot**
-   - **URL:** `/visualisation/distance-fare-scatter-plot/`
-   - **Method:** `POST`
-   - **Description:** Generates a scatter plot to analyse the relationship between trip distance and fare amount.
-
-8. **Time Series Line Chart**
-   - **URL:** `/visualisation/time-series-line/`
-   - **Method:** `POST`
-   - **Description:** Generates a line chart showing the number of trips over time (daily).
-
-### **Making API Requests**
-
-Use tools like **cURL**, **Postman**, or frontend interfaces to make `POST` requests to the desired endpoints.
-
-**Example Using cURL:**
-
-```bash
-curl -X POST http://127.0.0.1:8000/visualisation/trip-duration-histogram/ \
-  -F 'file=@/path/to/your/taxi_trips.csv' \
-  -F 'config_name=city_taxis_2020_dataset'
-```
-
-**Response:**
-
-```json
-{
-   "chart": {
-      "data": [
-         {
-            "x": [
-               /* list of trip durations */
-            ],
-            "type": "histogram",
-            "name": "Trip Durations",
-            "nbinsx": 50,
-            "marker": {
-               "color": "rgba(100, 149, 237, 0.7)"
-            }
-         }
-      ],
-      "layout": {
-         "title": "Distribution of Trip Durations (Minutes)",
-         "xaxis": {
-            "title": "Trip Duration (Minutes)"
-         },
-         "yaxis": {
-            "title": "Frequency"
-         }
-      }
-   }
-}
-```
-
-_Or simply run the backend runserver script!_
+Since the time-intensive or complex geospatial tasks happen in the Node.js + DuckDB backend, we keep the **data analysis
+** layer lightweight but still robust enough to handle typical data-exploration tasks (histograms, box plots, etc.).
 
 ---
 
 ## Limitations 🚧
 
-| **Limitation**           | **Details**                                                                                                                                        |
-|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Platform Testing**     | Tested on 🍎 **macOS Sequoia** on an Apple Silicon-based machine. Compatibility on other platforms like Linux is anticipated; Windows is untested. |
-| **Real-Time Processing** | Currently optimised for batch processing of CSV files. Real-time data streams require further development.                                         |
+| **Limitation**            | **Details**                                                                                                                                    |
+|---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Memory Usage**          | Large CSV uploads (tens/hundreds of MB) can consume significant memory in Python. For extremely large data, you may want chunked or streaming. |
+| **Real-time Analytics**   | Currently processes data in a “batch” fashion (file upload). No real-time streaming integration is provided.                                   |
+| **Must Maintain Columns** | The Node backend’s `data_analysis_backend_required_columns` must exist in your CSV. If you rename or remove them, analyses here will break.    |
+| **Python Dependencies**   | This project relies on fairly standard packages. But ensure your environment is correct if you face import errors.                             |
 
 ---
 
 ## 📖 **Further Reading**
 
-For detailed context and broader system architecture, refer to:  
-➡️ [Frontend README](https://github.com/VIDA-NYU/Taxis-Vis-Frontend)
-
-Explore the inspiring paper:  
-➡️ [Visual Exploration of Big Spatio-Temporal Urban Data: A Study of New York City Taxi Trips](https://ieeexplore.ieee.org/abstract/document/6634127/)
+- [Frontend (React) README](https://github.com/VIDA-NYU/Taxis-Vis-Frontend) – The user-facing side that triggers these
+  analysis requests.
+- [GeoSpatial (Node.js + DuckDB) Backend README](https://github.com/VIDA-NYU/Taxis-Vis-Geospatial-Backend) – Where the
+  filtering & queries happen.
+- [Original Taxis Vis Paper (IEEE)](https://ieeexplore.ieee.org/abstract/document/6634127/) – The 2013 research concept
+  behind it all.
 
 ---
 
-**Happy Exploring! 🚖**
+**Happy Analysing!**  
+_The Taxis Vis Team_  
