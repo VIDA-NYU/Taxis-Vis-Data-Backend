@@ -1,6 +1,6 @@
 [project]
 name = "Taxis-Vis-Data-Backend"
-version = "0.1.0"
+version = "0.2.0"
 description = "Taxis Vis Data Backend – Python & Django"
 readme = "README.md"
 requires-python = ">=3.9.8"
