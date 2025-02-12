@@ -11,6 +11,14 @@
 
 ---
 
+
+> [!WARNING]
+> **🚨 Important Notice**:
+> This current repository and the Taxis-Vis-Frontend are put on hold.
+> The goal was to see what is possible to do with today tools on the Javascript end side coupled with Python backend for
+> reproducing Taxis-VIS. Now it touches enough yet is not deleted because could be (re-)used.
+> Cheers! @Simon.
+
 ## 🚀 **Overview**
 
 The **Data Analysis Backend** is a **Django + Pandas** service that performs **analytics** on taxi trip data.  
@@ -70,24 +78,6 @@ python manage.py runserver
 2️⃣ **Frontend sends a filtered subset of trips (CSV) to this Django backend.**  
 3️⃣ **Django processes the CSV using Pandas** and generates **Plotly-compatible JSON** for visualization.  
 4️⃣ **Frontend receives the JSON** and renders the requested charts dynamically.
-
----
-
-## 🌐 **Available API Endpoints**
-
-Each endpoint expects a **multipart/form-data** `POST` request containing:
-
-- **`file`** → The CSV file with filtered taxi trip data.
-- *(Optional parameters)* like thresholds, bin sizes, etc.
-
-| **Endpoint**                                      | **Function**                              |
-|---------------------------------------------------|-------------------------------------------|
-| **`/api/visualisation/trip-duration-histogram/`** | Generates a histogram of trip durations.  |
-| **`/api/visualisation/fare-distribution-box/`**   | Box plot distribution of fare amounts.    |
-| **`/api/visualisation/distance-fare-scatter/`**   | Scatter plot of distance vs fare.         |
-| **`/api/visualisation/time-series-line/`**        | Line chart showing trip volume over time. |
-
-💡 Each response returns **Plotly JSON**, allowing easy embedding in the **Taxis Vis** UI.
 
 ---
 
